@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>言选卡片机 - 缩放预览多行排版</title>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1">
+    function convertTabs() {
+      const inputArea = document.getElementById('textInput');
+      const converted = inputArea.value.replace(/\t/g, ',');
+      inputArea.value = converted;
+      alert('已轉換為逗號分隔格式，可直接生成卡片！');
+    }
+    </script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js">
+    function convertTabs() {
+      const inputArea = document.getElementById('textInput');
+      const converted = inputArea.value.replace(/\t/g, ',');
+      inputArea.value = converted;
+      alert('已轉換為逗號分隔格式，可直接生成卡片！');
+    }
+    </script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js">
+    function convertTabs() {
+      const inputArea = document.getElementById('textInput');
+      const converted = inputArea.value.replace(/\t/g, ',');
+      inputArea.value = converted;
+      alert('已轉換為逗號分隔格式，可直接生成卡片！');
+    }
+    </script>
+  <style>
+    @font-face {
+      font-family: 'HuiwenMincho';
+      src: url('./HuiwenMincho.ttf');
+    }
+    body {
+      font-family: sans-serif;
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      padding: 20px;
+    }
+    .settings {
+      width: 360px;
+      flex-shrink: 0;
+    }
+    textarea {
+      width: 100%;
+      height: 400px;
+      resize: vertical;
+    }
+    .preview-area {
+      flex-grow: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .preview-wrapper {
+      width: 300px;
+      height: 300px;
+      overflow: hidden;
+      position: relative;
+    }
+    .card {
+      width: 900px;
+      height: 900px;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 60px;
+      white-space: pre-line;
+      color: #222;
+      font-size: 36px;
+      line-height: 1.5;
+      transform: scale(0.33);
+      transform-origin: top left;
+    }
+    .quote-text {
+      margin-bottom: 0.6em;
+    }
+    .author {
+      font-size: 27px;
+      color: #444;
+      letter-spacing: 0.05em;
+      margin-top: 12px;
+    }
+    .bottom-url {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 14px;
+      color: #999;
+      font-family: Georgia, serif;
+    }
+  </style>
+</head>
+<body>
+  <div class="settings">
+    <h2>📜 言选卡片机</h2>
+
+    <textarea id="textInput" placeholder="每段格式：语录,作者 
+\n 换行书写 
+，。；会换行
+##， 为不换行"></textarea><br><br>
+
+    <label>上传背景图：</label>
+    <input type="file" id="bgUpload" accept="image/*"><br><br>
+
+    <label>上传自定义字体（.ttf）：</label>
+    <input type="file" id="fontUpload" accept=".ttf"><br><br>
+
+    <label>字体名称：</label>
+    <input type="text" id="fontName" value="HuiwenMincho"><br><br>
+
+    <label>字号：</label>
+    <input type="number" id="fontSize" value="55"> px　
+    <label>行距：</label>
+    <input type="number" id="lineHeight" value="1.5" step="0.1"><br><br>
+
+    <label>网址显示：</label>
+    <input type="text" id="siteUrl" value="SuperLifeOS.com"><br><br>
+
+    <button onclick="convertTabs()">將 Notion 複製格式轉為逗號格式</button><br><br>
+    <button onclick="generateCards()">生成卡片</button>
+    <button onclick="downloadAll()">打包下载</button>
+  </div>
+
+  <div id="previewArea" class="preview-area"></div>
+
+  <script>
+    let bgUrl = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgG...";
+    let customFont = 'HuiwenMincho';
+    let lastQuotes = [];
+
+    document.getElementById('bgUpload').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => { bgUrl = ev.target.result; };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('fontUpload').addEventListener('change', e => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = ev => {
+        customFont = file.name.split('.')[0];
+        document.getElementById('fontName').value = customFont;
+        const style = document.createElement('style');
+        style.innerHTML = `@font-face { font-family: '${customFont}'; src: url('${ev.target.result}'); }`;
+        document.head.appendChild(style);
+        alert('字体已加载：' + customFont);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function parseInput() {
+      return document.getElementById('textInput').value.trim().split(/\n+/).map(line => {
+        const [quote, author] = line.split(',');
+        return {
+          quote: (quote || '').trim().replace(/##，/g, '##comma').replace(/[，。；]/g, '$&<br>').replace(/##comma/g, '，'),
+          author: author ? author.trim() : ''
+        };
+      }).filter(q => q.quote);
+    }
+
+    function generateCards() {
+      const preview = document.getElementById('previewArea');
+      preview.innerHTML = '';
+
+      const font = document.getElementById('fontName').value;
+      const size = document.getElementById('fontSize').value;
+      const lh = document.getElementById('lineHeight').value;
+      const site = document.getElementById('siteUrl').value;
+      const quotes = parseInput();
+      lastQuotes = quotes;
+
+      quotes.forEach((q, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'preview-wrapper';
+
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.id = `card-${i}`;
+        div.style.fontFamily = font;
+        div.style.fontSize = `${size}px`;
+        div.style.lineHeight = lh;
+        div.style.backgroundImage = `url('${bgUrl}')`;
+        div.innerHTML = `
+          <div class="quote-text">${q.quote.replace(/\\n/g, '<br>')}</div>
+          ${q.author ? `<div class="author">${q.author}</div>` : ''}
+          <div class="bottom-url">${site}</div>
+        `;
+
+        wrapper.appendChild(div);
+        preview.appendChild(wrapper);
+      });
+    }
+
+    async function downloadAll() {
+      const zip = new JSZip();
+      const cards = document.querySelectorAll('.card');
+
+      for (let i = 0; i < cards.length; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        const canvas = await html2canvas(cards[i], { useCORS: true, scale: 3 });
+        const blob = await new Promise(res => canvas.toBlob(res));
+        if (!blob) {
+          alert(`第 ${i + 1} 张图像生成失败，请检查字体或背景图加载是否完成`);
+          continue;
+        }
+        const cleanAuthor = (lastQuotes[i].author || 'unknown').replace(/[\\/:*?"<>|\n]/g, '').trim();
+        const cleanHead = lastQuotes[i].quote.slice(0, 3).replace(/[\\/:*?"<>|\n]/g, '').trim();
+        zip.file(`${cleanAuthor}_${cleanHead || 'quote_' + (i + 1)}.png`, blob);
+      }
+      zip.generateAsync({ type: 'blob' }).then(content => {
+        saveAs(content, 'quote_cards.zip');
+      });
+    }
+  
+    function convertTabs() {
+      const inputArea = document.getElementById('textInput');
+      const converted = inputArea.value.replace(/\t/g, ',');
+      inputArea.value = converted;
+      alert('已轉換為逗號分隔格式，可直接生成卡片！');
+    }
+    </script>
+</body>
+</html>
