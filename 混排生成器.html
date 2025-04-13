@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>語錄混排工具</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 960px; margin: auto; }
+    textarea { width: 100%; height: 240px; margin-bottom: 1em; font-family: monospace; }
+    button { padding: 8px 20px; margin-bottom: 1em; }
+    pre { background: #f7f7f7; padding: 10px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>📅 語錄混排工具</h2>
+  <p>請貼上語錄清單，每行格式：<code>語錄,作者,主題,序號</code>（序號可空），系統會避免人物與主題重複出現太近。</p>
+  <button onclick="convertTabs()">將 Notion 複製格式轉為逗號格式</button>
+  <br><br>
+  <textarea id="input" placeholder="成為你自己。,尼采,成長\n人生而自由，卻無往不在枷鎖。,盧梭,自由\n..."></textarea>
+  <button onclick="shuffleQuotes()">生成混排結果</button>
+  <button onclick="exportCSV()">下載 CSV</button>
+  <a id="downloadLink" style="display:none"></a>
+  <h3>📤 結果：</h3>
+  <pre id="output"></pre>
+
+  <script>
+    function shuffleQuotes() {
+      const input = document.getElementById('input').value.trim();
+      const lines = input.split('\n').map(line => {
+        
+      const [quote, author, topic, index] = line.split(',');
+      return { quote: quote?.trim(), author: author?.trim(), topic: topic?.trim(), index: index?.trim() };
+    
+        return { quote: quote?.trim(), author: author?.trim(), topic: topic?.trim() };
+      }).filter(q => q.quote && q.author && q.topic);
+
+      const result = [];
+      const usedAuthors = new Set();
+      const usedTopics = new Set();
+
+      while (lines.length) {
+        let found = false;
+        for (let i = 0; i < lines.length; i++) {
+          const q = lines[i];
+          if (!usedAuthors.has(q.author) && !usedTopics.has(q.topic)) {
+            result.push(q);
+            usedAuthors.add(q.author);
+            usedTopics.add(q.topic);
+            lines.splice(i, 1);
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          usedAuthors.clear();
+          usedTopics.clear();
+        }
+      }
+
+      const startDate = new Date();
+      const linesOut = result.map((q, i) => {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+        return `${dateStr}｜${q.index || ''}｜${q.quote}｜${q.author}｜${q.topic}`;
+      });
+
+      document.getElementById('output').textContent = linesOut.join('\n');
+    }
+  
+    function convertTabs() {
+      const inputArea = document.getElementById('input');
+      const converted = inputArea.value.replace(/\t/g, ',');
+      inputArea.value = converted;
+      alert('已轉換為逗號分隔格式，可直接混排！');
+    }
+    
+    function exportCSV() {
+      const output = document.getElementById('output').textContent.trim();
+      if (!output) return alert('請先生成混排結果');
+      const csv = ['日期,序號,語錄,作者,主題'];
+      output.split('\n').forEach(line => {
+        const [date, index, quote, author, topic] = line.split('｜');
+        const row = [date, index, quote, author, topic].map(s => `"${s?.replace(/"/g, '""')}"`).join(',');
+        csv.push(row);
+      });
+      const bom = '\uFEFF';
+      const blob = new Blob([bom + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.getElementById('downloadLink');
+      link.setAttribute('href', url);
+      link.setAttribute('download', '語錄混排.csv');
+      link.click();
+    }
+    </script>
+</body>
+</html>
