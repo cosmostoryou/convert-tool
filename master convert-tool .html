@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>繁簡轉換工具 · SuperlifeOS</title>
+  <script src="./opencc-full.js"></script>
+  <style>
+    :root {
+      --bg-light: #f9f9f9;
+      --bg-dark: #1e1e1e;
+      --text-light: #333;
+      --text-dark: #eee;
+      --box-light: #f0f0f0;
+      --box-dark: #2c2c2c;
+    }
+    body {
+      font-family: sans-serif;
+      padding: 2em;
+      background-color: var(--bg-light);
+      color: var(--text-light);
+      max-width: 720px;
+      margin: auto;
+      transition: all 0.3s ease;
+    }
+    body.dark {
+      background-color: var(--bg-dark);
+      color: var(--text-dark);
+    }
+    textarea {
+      width: 100%;
+      padding: 1em;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+      resize: vertical;
+      background-color: white;
+    }
+    body.dark textarea {
+      background-color: #333;
+      color: #eee;
+      border: 1px solid #555;
+    }
+    button {
+      margin-top: 1em;
+      margin-right: 1em;
+      padding: 0.5em 1.2em;
+      font-size: 1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background-color: #111;
+      color: #fff;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background-color: var(--box-light);
+      padding: 1em;
+      border-radius: 8px;
+      margin-top: 1em;
+      min-height: 3em;
+    }
+    body.dark pre {
+      background-color: var(--box-dark);
+      color: var(--text-dark);
+    }
+    #loading {
+      margin-bottom: 1em;
+      font-size: 0.95em;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h2>繁簡轉換工具 · SuperlifeOS</h2>
+
+  <div id="loading">🔄 正在初始化 OpenCC，請稍候...</div>
+
+  <textarea id="inputText" rows="6" placeholder="請輸入要轉換的文字..."></textarea>
+
+  <div>
+    <button onclick="convertToSimplified()">轉為簡體</button>
+    <button onclick="convertToTraditional()">轉為繁體</button>
+    <button onclick="copyResult()">🔁 複製結果</button>
+    <button onclick="clearAll()">📋 清空</button>
+    <button onclick="toggleTheme()">☀️🌙 切換主題</button>
+  </div>
+
+  <h3>轉換結果：</h3>
+  <pre id="output">（這裡會顯示轉換後的文字）</pre>
+
+  <script>
+    let toCN, toTW;
+    let isReady = false;
+
+    const customPairs = [
+      ['「', '“'], ['」', '”'], ['『', '‘'], ['』', '’'],
+      ['蒙格', '芒格'], ['華倫', '沃伦'],
+      ['班傑明·葛拉漢', '本杰明·格雷厄姆'],
+      ['波克夏', '伯克希尔'], ['海瑟威', '哈撒韦'],
+      ['華倫·巴菲特', '沃伦·巴菲特'],
+      ['波克夏·海瑟威', '伯克希尔·哈撒韦']
+    ];
+
+    
+    const preserveTerms = ['智慧', '智能'];
+
+    function maskPreserveTerms(text) {
+      let masked = text;
+      preserveTerms.forEach((term, i) => {
+        masked = masked.replaceAll(term, `__PRESERVE_${i}__`);
+      });
+      return masked;
+    }
+
+    function unmaskPreserveTerms(text) {
+      let unmasked = text;
+      preserveTerms.forEach((term, i) => {
+        unmasked = unmasked.replaceAll(`__PRESERVE_${i}__`, term);
+      });
+      return unmasked;
+    }
+
+    const contextSensitivePairs = [
+      ['人工智慧', '人工智能'],
+      ['開放人工智慧', '開放人工智能']
+    ];
+
+    function applyContextSensitive(text, toSimplified = true) {
+      let result = text;
+      for (const [tw, cn] of contextSensitivePairs) {
+        result = result.replaceAll(toSimplified ? tw : cn, toSimplified ? cn : tw);
+      }
+      return result;
+    }
+
+
+    function applyCustom(text, toSimplified = true) {
+      let result = text;
+      for (const [tw, cn] of customPairs) {
+        result = result.replaceAll(toSimplified ? tw : cn, toSimplified ? cn : tw);
+      }
+      return result;
+    }
+
+    async function initOpenCC() {
+      toCN = await OpenCC.Converter({ from: 'twp', to: 'cn' });
+      toTW = await OpenCC.Converter({ from: 'cn', to: 'twp' });
+      isReady = true;
+      document.getElementById('loading').style.display = 'none';
+      console.log("✅ OpenCC 初始化完成");
+    }
+
+    initOpenCC();
+
+    async function waitUntilReady() {
+      while (!isReady) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+
+    async function convertToSimplified() {
+      await waitUntilReady();
+      const input = document.getElementById('inputText').value;
+      const step0 = applyContextSensitive(input, true);
+      const step1 = maskPreserveTerms(step0);
+      const step2 = applyCustom(step1, true);
+      const converted = await toCN(step2);
+      const result = unmaskPreserveTerms(converted);
+      document.getElementById('output').textContent = result;
+    }
+
+    async function convertToTraditional() {
+      await waitUntilReady();
+      const input = document.getElementById('inputText').value;
+      const step0 = applyContextSensitive(input, false);
+      const step1 = maskPreserveTerms(step0);
+      const step2 = applyCustom(step1, false);
+      const converted = await toTW(step2);
+      const result = unmaskPreserveTerms(converted);
+      document.getElementById('output').textContent = result;
+    }
+
+    function copyResult() {
+      const output = document.getElementById('output').textContent;
+      navigator.clipboard.writeText(output).then(() => {
+        alert("✅ 已複製轉換結果！");
+      });
+    }
+
+    function clearAll() {
+      document.getElementById('inputText').value = '';
+      document.getElementById('output').textContent = '';
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+  </script>
+</body>
+</html>
