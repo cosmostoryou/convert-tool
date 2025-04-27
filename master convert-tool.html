@@ -82,7 +82,7 @@
 
   <div>
     <button onclick="convertToSimplified()">轉為簡體</button>
-    <button onclick="convertToTraditional()">轉為繁體</button>
+    <button onclick="convertToTraditional()">轉為台灣繁體</button>
     <button onclick="copyResult()">🔁 複製結果</button>
     <button onclick="clearAll()">📋 清空</button>
     <button onclick="toggleTheme()">☀️🌙 切換主題</button>
@@ -149,8 +149,8 @@
     }
 
     async function initOpenCC() {
-      toCN = await OpenCC.Converter({ from: 'twp', to: 'cn' });
-      toTW = await OpenCC.Converter({ from: 'cn', to: 'twp' });
+      toCN = await OpenCC.Converter({ from: 'tw', to: 'cn' });
+      toTW = await OpenCC.Converter({ from: 'cn', to: 'tw' });
       isReady = true;
       document.getElementById('loading').style.display = 'none';
       console.log("✅ OpenCC 初始化完成");
