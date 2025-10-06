@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>言选卡片机 - 最终修复版</title>
+  <title>言选卡片机 - 最终优化版</title>
   <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
@@ -163,6 +163,13 @@
      .inline-setting label {
         margin-bottom: 0;
      }
+    /* ========================= 已修改的部分 START ========================= */
+    .line-punctuation-end {
+        position: relative;
+        /* 将以标点结尾的行向右移动半个字符的宽度 */
+        left: 0.5em;
+    }
+    /* ========================= 已修改的部分 END ========================= */
   </style>
 </head>
 <body>
@@ -198,7 +205,7 @@
     <div class="inline-setting">
         <div>
             <label for="fontSize">字号(px)：</label>
-            <input type="number" id="fontSize" value="55">
+            <input type="number" id="fontSize" value="70">
         </div>
         <div>
             <label for="lineHeight">行距：</label>
@@ -207,7 +214,7 @@
     </div>
     
     <label for="siteUrl">底部网址显示：</label>
-    <input type="text" id="siteUrl" value="名言語錄QUOTES">
+    <input type="text" id="siteUrl" value="名言語錄 QUOTES">
     
     <div>
         <input type="checkbox" id="autoLineBreak" checked style="width: auto;">
@@ -337,8 +344,19 @@
                                                 .replace(/##COMMA##/g, '，');
             }
             
+            const punctuationRegex = /[，。；,.;]$/;
+            const lines = processedQuote.split(/<br\s*\/?>/gi);
+            const styledLinesHTML = lines.map(lineContent => {
+                const trimmedLine = lineContent.trim();
+                if (punctuationRegex.test(trimmedLine)) {
+                    return `<div class="line-punctuation-end">${lineContent}</div>`;
+                } else {
+                    return `<div>${lineContent}</div>`;
+                }
+            }).join('');
+            
             return {
-                quote: processedQuote,
+                quote: styledLinesHTML,
                 author: author.trim()
             };
         }).filter(q => q.quote);
@@ -406,8 +424,6 @@
       updateDownloadButtons(quotes.length);
     }
 
-    // ========================= 稳定版下载功能 START =========================
-    // 辅助函数：等待元素内的图片加载完成
     const waitForImages = (element) => {
         const promises = [];
         const bgUrl = window.getComputedStyle(element).backgroundImage;
@@ -431,21 +447,17 @@
     };
 
     async function processAndDownloadCard(cardElement, quoteData) {
-        // 1. 等待图片加载
         await waitForImages(cardElement);
-        // 2. 短暂延时，确保字体渲染
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // 3. 执行截图
         const canvas = await html2canvas(cardElement, {
             useCORS: true,
             scale: 3,
             allowTaint: true
         });
 
-        // 4. 返回文件名和Canvas对象
         const cleanAuthor = (quoteData.author || 'unknown').replace(/[\\/:*?"<>|\n]/g, '').trim();
-        const cleanHead = quoteData.quote.replace(/<.*?>/g, '').slice(0, 10).replace(/[\\/:*?"<>|\n]/g, '').trim();
+        const cleanHead = cardElement.querySelector('.quote-text').textContent.slice(0, 10).replace(/[\\/:*?"<>|\n]/g, '').trim();
         const filename = `${cleanAuthor}_${cleanHead || 'quote'}.png`;
         
         return { filename, canvas };
@@ -491,7 +503,6 @@
         alert('所有图像均生成失败，无法下载。');
       }
     }
-    // ========================= 稳定版下载功能 END =========================
     
     // --- 辅助函数 ---
     function convertTabs() {
