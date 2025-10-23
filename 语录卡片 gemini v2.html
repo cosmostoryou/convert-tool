@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>言选卡片机 - 最终优化版</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=KaiTi&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  
+  <style>
+    @font-face {
+      font-family: '匯文明朝體GBK';
+      src: url('匯文明朝體GBK.ttf'); 
+    }
+    @font-face {
+      font-family: 'KangxiZidian';
+      src: url('kangxizidian.ttf');
+    }
+        @font-face {
+      font-family: '匯文仿宋';
+      src: url('匯文仿宋.ttf');
+    }
+        @font-face {
+      font-family: '匯文港黑';
+      src: url('匯文港黑.ttf');
+    }
+        @font-face {
+      font-family: '匯文明朝體old';
+      src: url('Huiwenmincho.ttf');
+    }
+        @font-face {
+      font-family: '匯文正楷';
+      src: url('匯文正楷.ttf');
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .settings {
+      width: 360px;
+      flex-shrink: 0;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .settings h2 {
+      margin-top: 0;
+    }
+    .settings label, .settings .button-group button {
+      display: block;
+      margin-bottom: 8px;
+    }
+    .settings input[type="text"], 
+    .settings input[type="number"], 
+    .settings select,
+    .settings textarea {
+        width: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-bottom: 12px;
+    }
+    .settings button {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        border-radius: 4px;
+        color: white;
+        background-color: #007bff;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    .settings button:hover {
+        background-color: #0056b3;
+    }
+    .button-group {
+        margin-top: 15px;
+    }
+    #downloadSingleBtn {
+        background-color: #28a745;
+    }
+     #downloadSingleBtn:hover {
+        background-color: #218838;
+    }
+    #downloadAllBtn {
+        background-color: #28a745;
+    }
+    #downloadAllBtn:hover {
+        background-color: #218838;
+    }
+    .editor-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .editor-buttons button {
+        width: auto;
+        flex-grow: 1;
+        margin-top: 0;
+        padding: 5px;
+        background-color: #6c757d;
+        font-size: 12px;
+    }
+     .editor-buttons button:hover {
+        background-color: #5a6268;
+     }
+    textarea {
+      height: 300px;
+      resize: vertical;
+    }
+    .preview-area {
+      flex-grow: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .preview-wrapper {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      overflow: hidden;
+    }
+    .card {
+      width: 900px;
+      height: 900px;
+      background-image: url('paper.jpg');
+      background-color: #f0f0f0;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 60px;
+      color: #222;
+      font-size: 36px;
+      line-height: 1.5;
+      transform: scale(0.3333);
+      transform-origin: top left;
+    }
+    .quote-text {
+      margin-bottom: 0.6em;
+    }
+    .author {
+      font-size: 0.75em;
+      color: #444;
+      letter-spacing: 0.05em;
+      margin-top: 12px;
+    }
+    .bottom-url {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 18px;
+      color: #999;
+      font-family: Georgia, serif;
+    }
+    .inline-setting {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+     .inline-setting label {
+        margin-bottom: 0;
+     }
+    .line-punctuation-end {
+        position: relative;
+        left: 0.5em;
+    }
+  </style>
+</head>
+<body>
+  <div class="settings">
+    <h2>📜 言选卡片机</h2>
+
+    <div class="editor-buttons">
+        <button onclick="addBreak()" title="在光标处插入<br>标签强制换行">插入换行</button>
+        <button onclick="removeBreaks()" title="移除选中文字内的所有换行">去除选中换行</button>
+        <button onclick="toggleCommaBreak()" title="将光标前最近的全角逗号在“换行”和“不换行”之间切换">切换逗号换行</button>
+    </div>
+    <textarea id="textInput" placeholder="每行一条语录，格式：&#10;语录内容,作者名&#10;&#10;示例：&#10;生活就像一盒巧克力，你永远不知道下一颗是什么味道。,阿甘正传"></textarea>
+
+    <label for="bgUpload">上传背景图：</label>
+    <input type="file" id="bgUpload" accept="image/*">
+
+    <label for="fontSelector">选择预设字体：</label>
+    <select id="fontSelector">
+        <option value="匯文明朝體GBK">默认字体 (汇文明朝体)</option>
+        <option value="KangxiZidian">康熙字典体</option>
+        <option value="'Noto Sans SC', sans-serif">思源黑体 (网络)</option>
+        <option value="'KaiTi', serif">楷体 (网络)</option>
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="匯文港黑">匯文港黑</option>
+        <option value="匯文仿宋">匯文仿宋</option>
+        <option value="匯文明朝體old">匯文明朝體old</option>
+        <option value="匯文正楷">匯文正楷</option>
+    </select>
+
+    <label for="fontUpload">或上传自定义字体（.ttf）：</label>
+    <input type="file" id="fontUpload" accept=".ttf">
+
+    <label for="fontName">当前字体名称：</label>
+    <input type="text" id="fontName" value="匯文明朝體GBK">
+
+    <div class="inline-setting">
+        <div>
+            <label for="fontSize">字号(px)：</label>
+            <input type="number" id="fontSize" value="90">
+        </div>
+        <div>
+            <label for="lineHeight">行距：</label>
+            <input type="number" id="lineHeight" value="1.5" step="0.1">
+        </div>
+    </div>
+    
+    <label for="siteUrl">底部网址显示：</label>
+    <input type="text" id="siteUrl" value="名言語錄QUOTES">
+    
+    <div>
+        <input type="checkbox" id="autoLineBreak" checked style="width: auto;">
+        <label for="autoLineBreak" style="display: inline;">根据标点符号自动换行</label>
+    </div>
+
+    <div class="button-group">
+        <button onclick="convertTabs()">Notion格式转换</button>
+        <button onclick="generateCards()">生成卡片</button>
+        <div id="download-container"></div>
+    </div>
+  </div>
+
+  <div id="previewArea" class="preview-area"></div>
+
+  <script>
+    let bgUrl = 'paper.jpg';
+    let customFont = 'HuiwenMincho';
+    let lastQuotes = [];
+    const textInputElement = document.getElementById('textInput');
+
+    // --- 事件监听器 ---
+
+    document.getElementById('bgUpload').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => { 
+            bgUrl = ev.target.result; 
+            generateCards();
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    document.getElementById('fontUpload').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        customFont = file.name.split('.').slice(0, -1).join('.');
+        document.getElementById('fontName').value = customFont;
+        const style = document.createElement('style');
+        style.innerHTML = `@font-face { font-family: '${customFont}'; src: url('${ev.target.result}'); }`;
+        document.head.appendChild(style);
+        alert('字体已加载：' + customFont);
+        generateCards();
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById('fontSelector').addEventListener('change', function() {
+        document.getElementById('fontName').value = this.value;
+        generateCards();
+    });
+
+    // --- 文本编辑功能 ---
+    function addBreak() {
+        const start = textInputElement.selectionStart;
+        const end = textInputElement.selectionEnd;
+        const text = textInputElement.value;
+        textInputElement.value = text.substring(0, start) + '<br>' + text.substring(end);
+        textInputElement.focus();
+        textInputElement.selectionEnd = start + 4;
+    }
+
+    function removeBreaks() {
+        const start = textInputElement.selectionStart;
+        const end = textInputElement.selectionEnd;
+        if (start === end) return;
+
+        const selectedText = textInputElement.value.substring(start, end);
+        const replacedText = selectedText.replace(/<br\s*\/?>|\n/gi, ' ');
+        
+        const text = textInputElement.value;
+        textInputElement.value = text.substring(0, start) + replacedText + text.substring(end);
+        textInputElement.focus();
+        textInputElement.selectionEnd = start + replacedText.length;
+    }
+
+    function toggleCommaBreak() {
+        const el = textInputElement;
+        const cursorPos = el.selectionStart;
+        const textBeforeCursor = el.value.substring(0, cursorPos);
+        const lastCommaIndex = textBeforeCursor.lastIndexOf('，');
+
+        if (lastCommaIndex === -1) {
+            alert('请将光标置于一个全角逗号（，）之后再点击。');
+            return;
+        }
+
+        const text = el.value;
+        if (lastCommaIndex > 1 && text.substring(lastCommaIndex - 2, lastCommaIndex) === '##') {
+            el.value = text.substring(0, lastCommaIndex - 2) + text.substring(lastCommaIndex);
+            el.focus();
+            el.selectionEnd = cursorPos - 2;
+        } else {
+            el.value = text.substring(0, lastCommaIndex) + '##' + text.substring(lastCommaIndex);
+            el.focus();
+            el.selectionEnd = cursorPos + 2;
+        }
+    }
+
+    // --- 核心功能函数 ---
+    function parseInput() {
+        const text = textInputElement.value.trim();
+        if (!text) return [];
+        
+        const autoBreak = document.getElementById('autoLineBreak').checked;
+        
+        return text.split(/\n+/).map(line => {
+            let quote, author;
+            const lastCommaIndex = line.lastIndexOf(',');
+
+            if (lastCommaIndex > 0) {
+                quote = line.substring(0, lastCommaIndex);
+                author = line.substring(lastCommaIndex + 1);
+            } else {
+                quote = line;
+                author = '';
+            }
+
+            let processedQuote = quote.trim();
+            if (autoBreak) {
+                processedQuote = processedQuote.replace(/##，/g, '##COMMA##')
+                                                .replace(/([，。；])(?!<br>)/g, '$1<br>')
+                                                .replace(/##COMMA##/g, '，');
+            }
+            
+            // ========================= 已修改的部分 START =========================
+            // 只检测中文（全角）标点符号
+            const punctuationRegex = /[，。；]$/;
+            // ========================= 已修改的部分 END =========================
+            const lines = processedQuote.split(/<br\s*\/?>/gi);
+            const styledLinesHTML = lines.map(lineContent => {
+                const trimmedLine = lineContent.trim();
+                if (punctuationRegex.test(trimmedLine)) {
+                    return `<div class="line-punctuation-end">${lineContent}</div>`;
+                } else {
+                    return `<div>${lineContent}</div>`;
+                }
+            }).join('');
+            
+            return {
+                quote: styledLinesHTML,
+                author: author.trim()
+            };
+        }).filter(q => q.quote);
+    }
+
+
+    function updateDownloadButtons(count) {
+        const container = document.getElementById('download-container');
+        container.innerHTML = '';
+
+        if (count === 1) {
+            const btn = document.createElement('button');
+            btn.id = 'downloadSingleBtn';
+            btn.textContent = '下载单张图片';
+            btn.onclick = downloadSingleCard;
+            container.appendChild(btn);
+        } else if (count > 1) {
+            const btn = document.createElement('button');
+            btn.id = 'downloadAllBtn';
+            btn.textContent = '打包下载全部';
+            btn.onclick = downloadAllCards;
+            container.appendChild(btn);
+        }
+    }
+
+    function generateCards() {
+      const preview = document.getElementById('previewArea');
+      preview.innerHTML = '';
+      
+      const quotes = parseInput();
+      lastQuotes = quotes;
+
+      if (quotes.length === 0) {
+        updateDownloadButtons(0);
+        return;
+      }
+
+      const font = document.getElementById('fontName').value;
+      const size = document.getElementById('fontSize').value;
+      const lh = document.getElementById('lineHeight').value;
+      const site = document.getElementById('siteUrl').value;
+
+      quotes.forEach((q, i) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'preview-wrapper';
+
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'card';
+        cardDiv.id = `card-${i}`;
+        cardDiv.style.fontFamily = `${document.getElementById('fontName').value}, 'KaiTi', 'Noto Sans SC', sans-serif`;
+        cardDiv.style.fontSize = `${size}px`;
+        cardDiv.style.lineHeight = lh;
+        cardDiv.style.backgroundImage = `url('${bgUrl}')`;
+        
+        cardDiv.innerHTML = `
+          <div class="quote-text">${q.quote}</div>
+          ${q.author ? `<div class="author">${q.author}</div>` : ''}
+          <div class="bottom-url">${site}</div>
+        `;
+        
+        wrapper.appendChild(cardDiv);
+        preview.appendChild(wrapper);
+      });
+
+      updateDownloadButtons(quotes.length);
+    }
+
+    const waitForImages = (element) => {
+        const promises = [];
+        const bgUrl = window.getComputedStyle(element).backgroundImage;
+        if (bgUrl && bgUrl !== 'none') {
+            const urlMatch = bgUrl.match(/url\("?(.+?)"?\)/);
+            if (urlMatch && urlMatch[1]) {
+                const imageUrl = urlMatch[1];
+                const promise = new Promise((resolve, reject) => {
+                    const img = new Image();
+                    if (!imageUrl.startsWith('data:')) {
+                        img.crossOrigin = 'anonymous';
+                    }
+                    img.onload = resolve;
+                    img.onerror = () => reject(new Error(`背景图加载失败: ${imageUrl}`));
+                    img.src = imageUrl;
+                });
+                promises.push(promise);
+            }
+        }
+        return Promise.all(promises);
+    };
+
+    async function processAndDownloadCard(cardElement, quoteData) {
+        await waitForImages(cardElement);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const canvas = await html2canvas(cardElement, {
+            useCORS: true,
+            scale: 3,
+            allowTaint: true
+        });
+
+        const cleanAuthor = (quoteData.author || 'unknown').replace(/[\\/:*?"<>|\n]/g, '').trim();
+        const cleanHead = cardElement.querySelector('.quote-text').textContent.slice(0, 10).replace(/[\\/:*?"<>|\n]/g, '').trim();
+        const filename = `${cleanAuthor}_${cleanHead || 'quote'}.png`;
+        
+        return { filename, canvas };
+    }
+    
+    async function downloadSingleCard() {
+        const cardElement = document.getElementById('card-0');
+        try {
+            const { filename, canvas } = await processAndDownloadCard(cardElement, lastQuotes[0]);
+            saveAs(canvas.toDataURL('image/png'), filename);
+        } catch (error) {
+            console.error(error);
+            alert(`图像生成失败！常见原因：\n1. 默认背景图 paper.jpg 不存在。\n2. 上传的图片已损坏或链接失效。\n3. 浏览器安全限制。`);
+        }
+    }
+
+    async function downloadAllCards() {
+      const zip = new JSZip();
+      const cards = document.querySelectorAll('.card');
+
+      for (let i = 0; i < cards.length; i++) {
+        try {
+            const cardElement = cards[i];
+            const quoteData = lastQuotes[i];
+            const { filename, canvas } = await processAndDownloadCard(cardElement, quoteData);
+
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+            if (blob) {
+                zip.file(`${i + 1}_${filename}`, blob);
+            }
+        } catch(error) {
+            console.error(`生成第 ${i + 1} 张图像失败:`, error);
+            alert(`生成第 ${i + 1} 张图像时失败，已跳过。请检查背景图或字体。`);
+        }
+      }
+
+      const zipFileCount = Object.keys(zip.files).length;
+      if(zipFileCount > 0) {
+        zip.generateAsync({ type: 'blob' }).then(content => {
+            saveAs(content, `quote_cards_${zipFileCount}in1.zip`);
+        });
+      } else {
+        alert('所有图像均生成失败，无法下载。');
+      }
+    }
+    
+    // --- 辅助函数 ---
+    function convertTabs() {
+      textInputElement.value = textInputElement.value.replace(/\t/g, ',');
+      alert('已将Tab分隔格式转换为逗号分隔，可直接生成卡片！');
+    }
+  </script>
+</body>
+</html>
